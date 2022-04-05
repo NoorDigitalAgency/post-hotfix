@@ -1,19 +1,93 @@
-import * as core from '@actions/core'
-import {wait} from './wait'
+import * as core from '@actions/core';
+import { create } from '@actions/artifact';
+import { rmRF } from '@actions/io';
+import { inspect as stringify } from 'util';
+import { readFileSync, existsSync } from 'fs';
 
 async function run(): Promise<void> {
+
   try {
-    const ms: string = core.getInput('milliseconds')
-    core.debug(`Waiting ${ms} milliseconds ...`) // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
 
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    const token = core.getInput('token', { required: true });
 
-    core.setOutput('time', new Date().toTimeString())
+    core.debug(`Token: '${token}'`);
+
+    const artifactName = core.getInput('artifact_name');
+
+    core.debug(`Artifact name: '${artifactName}'`);
+
+    const exports = core.getBooleanInput('exports');
+
+    core.info(`Exports is: ${exports}`);
+
+    const client = create();
+
+    try {
+
+      await client.downloadArtifact(artifactName);
+
+    } catch (error) {
+
+      throw new Error(`Failed to download artifact '${artifactName}'. Make sure the 'dawn' action is already run with the same artifact name.`);
+    }
+
+    const file = `${artifactName}.json`;
+
+    if (!existsSync(file)) {
+
+      throw new Error(`Artifact file '${file}' doesn't exist.`);
+    }
+
+    core.debug(`Artifact file name: '${file}'`);
+
+    const {version, previousVersion, reference} = JSON.parse(readFileSync(file).toString()) as {version: string; previousVersion: string; reference: string};
+
+    core.debug(`Version is: ${version}`);
+
+    core.debug(`Previous version is: ${previousVersion}`);
+
+    core.debug(`Reference is: ${reference}`);
+
+    rmRF(file).catch((error) => {
+
+      core.warning(`File '${file} could not be removed.'`);
+
+      core.startGroup('Artifact removal error');
+
+      core.debug(`${stringify(error, { depth: 5 })}`);
+
+      core.endGroup();
+    });
+
+    if (exports) {
+
+      core.debug('Attempting to export the environment varibales.');
+
+      core.exportVariable('RELEASE_VERSION', version);
+
+      core.exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
+
+      core.exportVariable('RELEASE_REFERENCE', reference);
+
+      core.debug('Exported the environment varibales.');
+    }
+
+    core.setOutput('version', version);
+
+    core.setOutput('previous_version', previousVersion);
+
+    core.setOutput('reference', reference);
+
   } catch (error) {
+
+    core.startGroup('Error');
+
+    core.debug(`${stringify(error, { depth: 5 })}`);
+
+    core.endGroup();
+
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
 
-run()
+run();

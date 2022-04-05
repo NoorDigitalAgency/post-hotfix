@@ -1,11 +1,21 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Midday'
+description: "Midday, between 'dawn' and 'dusk' release version provider"
+author: 'Rojan Gh.'
 inputs:
-  milliseconds: # change this
+  token:
     required: true
-    description: 'input description here'
-    default: 'default value if applicable'
+    description: Token
+  stage:
+    required: true
+    description: Target stage
+  artifact_name:
+    required: false
+    description: Dawn action artifact name
+    default: dawn-outputs
+  exports:
+    required: false
+    description: Export outputs as environment veriables
+    default: 'true'
 runs:
   using: 'node16'
   main: 'dist/index.js'
