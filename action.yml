@@ -1,5 +1,5 @@
-name: 'Midday'
-description: "Midday, between 'dawn' and 'dusk' release version provider"
+name: 'Release Lookup'
+description: 'Release Lookup Action'
 author: 'Rojan Gh.'
 inputs:
   token:
@@ -10,8 +10,8 @@ inputs:
     description: Target stage
   artifact_name:
     required: false
-    description: Dawn action artifact name
-    default: dawn-outputs
+    description: Release Startup Action artifact name
+    default: release-startup-outputs
   exports:
     required: false
     description: Export outputs as environment veriables
