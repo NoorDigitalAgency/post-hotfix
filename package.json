@@ -1,8 +1,8 @@
 {
-  "name": "midday",
+  "name": "release-lookup",
   "version": "1.0.0",
   "private": true,
-  "description": "Midday, between 'dawn' and 'dusk' release version provider",
+  "description": "Release Lookup Action",
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NoorDigitalAgency/midday.git"
+    "url": "git+https://github.com/NoorDigitalAgency/release-lookup.git"
   },
   "author": "Rojan Gh.",
   "license": "MIT",
