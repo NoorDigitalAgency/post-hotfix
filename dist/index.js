@@ -58,7 +58,7 @@ function run() {
                 yield client.downloadArtifact(artifactName);
             }
             catch (error) {
-                throw new Error(`Failed to download artifact '${artifactName}'. Make sure the 'dawn' action is already run with the same artifact name.`);
+                throw new Error(`Failed to download artifact '${artifactName}'. Make sure the 'release-startup' action is already run with the same artifact name.`);
             }
             const file = `${artifactName}.json`;
             if (!(0, fs_1.existsSync)(file)) {
