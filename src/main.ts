@@ -28,7 +28,7 @@ async function run(): Promise<void> {
 
     } catch (error) {
 
-      throw new Error(`Failed to download artifact '${artifactName}'. Make sure the 'dawn' action is already run with the same artifact name.`);
+      throw new Error(`Failed to download artifact '${artifactName}'. Make sure the 'release-startup' action is already run with the same artifact name.`);
     }
 
     const file = `${artifactName}.json`;
