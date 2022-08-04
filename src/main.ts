@@ -40,7 +40,7 @@ async function run(): Promise<void> {
 
     core.debug(`Artifact file name: '${file}'`);
 
-    const {version, previousVersion, reference} = JSON.parse(readFileSync(file).toString()) as {version: string; previousVersion: string; reference: string};
+    const {version, plainVersion, previousVersion, reference} = JSON.parse(readFileSync(file).toString()) as {version: string; plainVersion: string; previousVersion: string; reference: string};
 
     core.debug(`Version is: ${version}`);
 
@@ -65,6 +65,8 @@ async function run(): Promise<void> {
 
       core.exportVariable('RELEASE_VERSION', version);
 
+      core.exportVariable('RELEASE_PLAIN_VERSION', plainVersion);
+
       core.exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
 
       core.exportVariable('RELEASE_REFERENCE', reference);
@@ -73,6 +75,8 @@ async function run(): Promise<void> {
     }
 
     core.setOutput('version', version);
+
+    core.setOutput('plain_version', plainVersion);
 
     core.setOutput('previous_version', previousVersion);
 
