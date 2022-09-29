@@ -65,8 +65,9 @@ function run() {
                 throw new Error(`Artifact file '${file}' doesn't exist.`);
             }
             core.debug(`Artifact file name: '${file}'`);
-            const { version, plainVersion, previousVersion, reference } = JSON.parse((0, fs_1.readFileSync)(file).toString());
+            const { version, plainVersion, extendedVersion, previousVersion, reference } = JSON.parse((0, fs_1.readFileSync)(file).toString());
             core.debug(`Version is: ${version}`);
+            core.debug(`Extended version is: ${extendedVersion}`);
             core.debug(`Previous version is: ${previousVersion}`);
             core.debug(`Reference is: ${reference}`);
             (0, io_1.rmRF)(file).catch((error) => {
@@ -76,15 +77,17 @@ function run() {
                 core.endGroup();
             });
             if (exports) {
-                core.debug('Attempting to export the environment varibales.');
+                core.debug('Attempting to export the environment variables.');
                 core.exportVariable('RELEASE_VERSION', version);
                 core.exportVariable('RELEASE_PLAIN_VERSION', plainVersion);
+                core.exportVariable('RELEASE_EXTENDED_VERSION', extendedVersion);
                 core.exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
                 core.exportVariable('RELEASE_REFERENCE', reference);
-                core.debug('Exported the environment varibales.');
+                core.debug('Exported the environment variables.');
             }
             core.setOutput('version', version);
             core.setOutput('plain_version', plainVersion);
+            core.setOutput('extended_version', extendedVersion);
             core.setOutput('previous_version', previousVersion);
             core.setOutput('reference', reference);
         }

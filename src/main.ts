@@ -40,9 +40,11 @@ async function run(): Promise<void> {
 
     core.debug(`Artifact file name: '${file}'`);
 
-    const {version, plainVersion, previousVersion, reference} = JSON.parse(readFileSync(file).toString()) as {version: string; plainVersion: string; previousVersion: string; reference: string};
+    const {version, plainVersion, extendedVersion, previousVersion, reference} = JSON.parse(readFileSync(file).toString()) as {version: string; plainVersion: string; extendedVersion: string; previousVersion: string; reference: string};
 
     core.debug(`Version is: ${version}`);
+
+    core.debug(`Extended version is: ${extendedVersion}`);
 
     core.debug(`Previous version is: ${previousVersion}`);
 
@@ -61,22 +63,26 @@ async function run(): Promise<void> {
 
     if (exports) {
 
-      core.debug('Attempting to export the environment varibales.');
+      core.debug('Attempting to export the environment variables.');
 
       core.exportVariable('RELEASE_VERSION', version);
 
       core.exportVariable('RELEASE_PLAIN_VERSION', plainVersion);
 
+      core.exportVariable('RELEASE_EXTENDED_VERSION', extendedVersion);
+
       core.exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
 
       core.exportVariable('RELEASE_REFERENCE', reference);
 
-      core.debug('Exported the environment varibales.');
+      core.debug('Exported the environment variables.');
     }
 
     core.setOutput('version', version);
 
     core.setOutput('plain_version', plainVersion);
+
+    core.setOutput('extended_version', extendedVersion);
 
     core.setOutput('previous_version', previousVersion);
 
