@@ -5,9 +5,6 @@ inputs:
   token:
     required: true
     description: Token
-  stage:
-    required: true
-    description: Target stage
   artifact_name:
     required: false
     description: Release Startup Action artifact name
