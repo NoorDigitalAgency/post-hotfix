@@ -5,7 +5,6 @@ import {
   getBooleanInput,
   startGroup,
   endGroup,
-  setFailed,
   summary, warning
 } from '@actions/core';
 import {getOctokit, context} from '@actions/github';
