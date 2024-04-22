@@ -2,7 +2,6 @@ import {
   getInput,
   debug,
   info,
-  getBooleanInput,
   startGroup,
   endGroup,
   summary, warning
