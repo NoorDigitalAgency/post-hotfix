@@ -16,9 +16,9 @@
   "author": "Rojan Gh.",
   "license": "MIT",
   "dependencies": {
-    "@actions/artifact": "^1.1.0",
     "@actions/core": "^1.10.0",
-    "@actions/io": "^1.1.2"
+    "@actions/exec": "^1.1.1",
+    "@actions/github": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^18.11.9",

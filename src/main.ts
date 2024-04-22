@@ -1,102 +1,83 @@
-import * as core from '@actions/core';
-import { create } from '@actions/artifact';
-import { rmRF } from '@actions/io';
-import { inspect as stringify } from 'util';
-import { readFileSync, existsSync } from 'fs';
+import {
+  getInput,
+  debug,
+  info,
+  getBooleanInput,
+  startGroup,
+  endGroup,
+  setFailed,
+  summary
+} from '@actions/core';
+import {getOctokit, context} from '@actions/github';
+import {inspect as stringify} from 'util';
+import {wait} from "./functions";
+import {exec} from "@actions/exec";
 
 async function run(): Promise<void> {
 
   try {
 
-    const token = core.getInput('token', { required: true });
+    const token = getInput('token', { required: true });
 
-    core.debug(`Token: '${token}'`);
+    debug(`Token: '${token}'`);
 
-    const artifactName = core.getInput('artifact_name');
+    const branchName = getInput('branch_name', { required: true });
 
-    core.debug(`Artifact name: '${artifactName}'`);
+    debug(`Branch name: '${branchName}'`);
 
-    const exports = core.getBooleanInput('exports');
+    const version = getBooleanInput('release_version', { required: true });
 
-    core.info(`Exports is: ${exports}`);
+    info(`Release version: ${version}`);
 
-    const client = create();
+    const octokit = getOctokit(token);
 
-    try {
+    const title = `Generated PR for hotfix/${ version } into develop`;
 
-      await client.downloadArtifact(artifactName);
+    const body = `**Merge Back** pull request **(develop🠔${ branchName })** for **hotfix** version **${ version }**.`;
 
-    } catch (error) {
+    let pull = (await octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }`, title, body })).data;
 
-      throw new Error(`Failed to download artifact '${artifactName}'. Make sure the 'release-startup' action is already run with the same artifact name.`);
+    while (pull.mergeable == null) {
+
+      await wait(5000);
+
+      pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
     }
 
-    const file = `${artifactName}.json`;
+    if (!pull.mergeable) {
 
-    if (!existsSync(file)) {
+      const url = new URL(context.payload.repository!.html_url!);
 
-      throw new Error(`Artifact file '${file}' doesn't exist.`);
+      const actor = context.actor;
+
+      const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
+
+      await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
+
+      await exec('git', ['config', '--global', 'user.name', '"Noor’s GitHub Bot"']);
+
+      await exec('git', ['clone', githubUrl, '.']);
+
+      await exec('git', ['checkout', '-b', branchName]);
+
+      await exec('git', ['pull', 'origin', branchName, '--ff']);
+
+      await exec('git', ['merge', 'origin/develop', '--ff', '-X', 'ours']);
+
+      await exec('git', ['push', '--set-upstream', 'origin', branchName]);
     }
 
-    core.debug(`Artifact file name: '${file}'`);
-
-    const {version, plainVersion, extendedVersion, previousVersion, reference} = JSON.parse(readFileSync(file).toString()) as {version: string; plainVersion: string; extendedVersion: string; previousVersion: string; reference: string};
-
-    core.debug(`Version is: ${version}`);
-
-    core.debug(`Extended version is: ${extendedVersion}`);
-
-    core.debug(`Previous version is: ${previousVersion}`);
-
-    core.debug(`Reference is: ${reference}`);
-
-    rmRF(file).catch((error) => {
-
-      core.warning(`File '${file} could not be removed.'`);
-
-      core.startGroup('Artifact removal error');
-
-      core.debug(`${stringify(error, { depth: 5 })}`);
-
-      core.endGroup();
-    });
-
-    if (exports) {
-
-      core.debug('Attempting to export the environment variables.');
-
-      core.exportVariable('RELEASE_VERSION', version);
-
-      core.exportVariable('RELEASE_PLAIN_VERSION', plainVersion);
-
-      core.exportVariable('RELEASE_EXTENDED_VERSION', extendedVersion);
-
-      core.exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
-
-      core.exportVariable('RELEASE_REFERENCE', reference);
-
-      core.debug('Exported the environment variables.');
-    }
-
-    core.setOutput('version', version);
-
-    core.setOutput('plain_version', plainVersion);
-
-    core.setOutput('extended_version', extendedVersion);
-
-    core.setOutput('previous_version', previousVersion);
-
-    core.setOutput('reference', reference);
+    await summary.addRaw(`Merge-Back Pull Request for **develop**: [${title}](${pull.html_url})`, true).write();
 
   } catch (error) {
 
-    core.startGroup('Error');
+    startGroup('Error');
 
-    core.debug(`${stringify(error, { depth: 5 })}`);
+    debug(`${stringify(error, { depth: 5 })}`);
 
-    core.endGroup();
+    endGroup();
 
-    if (error instanceof Error) core.setFailed(error.message)
+    if (error instanceof Error) setFailed(error.message);
   }
 }
 
