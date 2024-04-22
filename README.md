@@ -11,5 +11,5 @@ Usage:
         with:
           token: ${{ github.token }} # GitHub token
           branch_name: ${{ inputs.hotfix_branch }} # Hotfix branch name
-          release_version: ${{ env.RELEASE_VERSION }} # the hotfix release version
+          release_version: ${{ env.RELEASE_VERSION }} # The hotfix release version
 ```
