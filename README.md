@@ -1,15 +1,15 @@
-# Release Lookup Action
+# Post Hotfix Action
 
 Used for:
-- Provide the release version information as outputs and environment variables
+- Creates the post hotfix pull request
 
 Usage:
 ```yaml
     steps:
-      - uses: NoorDigitalAgency/release-lookup@main
-        name: Release Lookup
+      - uses: NoorDigitalAgency/post-hotfix@main
+        name: Post Hotfix
         with:
           token: ${{ github.token }} # GitHub token
-          artifact_name: release-startup-outputs # Artifact name used by release-
-          exports: true # If true, the outputs will be exported as environment variables
+          branch_name: ${{ inputs.hotfix_branch }} # Hotfix branch name
+          release_version: ${{ env.RELEASE_VERSION }} # the hotfix release version
 ```
