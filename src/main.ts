@@ -34,13 +34,17 @@ async function run(): Promise<void> {
 
     const body = `**Merge Back** pull request **(develop🠔${ branchName })** for **hotfix** version **${ version }**.`;
 
-    let pull = (await octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }`, title, body })).data;
+    let pullNumber = ((await octokit.rest.pulls.list({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }` })).data.pop() ??
+
+        (await octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }`, title, body })).data).number;
+
+    let pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pullNumber })).data;
 
     while (pull.mergeable == null) {
 
       await wait(5000);
 
-      pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
+      pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pullNumber })).data;
     }
 
     if (!pull.mergeable) {
