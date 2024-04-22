@@ -24,7 +24,7 @@ async function run(): Promise<void> {
 
     debug(`Branch name: '${branchName}'`);
 
-    const version = getBooleanInput('release_version', { required: true });
+    const version = getInput('release_version', { required: true });
 
     info(`Release version: ${version}`);
 

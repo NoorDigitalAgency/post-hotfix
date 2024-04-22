@@ -43,7 +43,7 @@ function run() {
             (0, core_1.debug)(`Token: '${token}'`);
             const branchName = (0, core_1.getInput)('branch_name', { required: true });
             (0, core_1.debug)(`Branch name: '${branchName}'`);
-            const version = (0, core_1.getBooleanInput)('release_version', { required: true });
+            const version = (0, core_1.getInput)('release_version', { required: true });
             (0, core_1.info)(`Release version: ${version}`);
             const octokit = (0, github_1.getOctokit)(token);
             const title = `Generated PR for hotfix/${version} into develop`;
