@@ -6,7 +6,7 @@ import {
   startGroup,
   endGroup,
   setFailed,
-  summary
+  summary, warning
 } from '@actions/core';
 import {getOctokit, context} from '@actions/github';
 import {inspect as stringify} from 'util';
@@ -77,7 +77,7 @@ async function run(): Promise<void> {
 
     endGroup();
 
-    if (error instanceof Error) setFailed(error.message);
+    warning(`Failed to create the merge-back pull request with error${ error instanceof Error ? `: ${error.message}` : '.' }`);
   }
 }
 

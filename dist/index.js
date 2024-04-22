@@ -71,8 +71,7 @@ function run() {
             (0, core_1.startGroup)('Error');
             (0, core_1.debug)(`${(0, util_1.inspect)(error, { depth: 5 })}`);
             (0, core_1.endGroup)();
-            if (error instanceof Error)
-                (0, core_1.setFailed)(error.message);
+            (0, core_1.warning)(`Failed to create the merge-back pull request with error${error instanceof Error ? `: ${error.message}` : '.'}`);
         }
     });
 }
