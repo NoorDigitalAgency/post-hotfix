@@ -1,18 +1,16 @@
-name: 'Release Lookup'
-description: 'Release Lookup Action'
+name: 'Post Hotfix'
+description: 'Post Hotfix Action'
 author: 'Rojan Gh.'
 inputs:
   token:
     required: true
-    description: Token
-  artifact_name:
-    required: false
-    description: Release Startup Action artifact name
-    default: release-startup-outputs
-  exports:
-    required: false
-    description: Export outputs as environment veriables
-    default: 'true'
+    description: GitHub Token
+  branch_name:
+    required: true
+    description: Hotfix branch name
+  release_version:
+    required: true
+    description: The hotfix release version
 runs:
   using: 'node20'
   main: 'dist/index.js'
