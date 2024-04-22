@@ -61,7 +61,7 @@ function run() {
                 yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', '"Noor’s GitHub Bot"']);
                 yield (0, exec_1.exec)('git', ['clone', githubUrl, '.']);
                 yield (0, exec_1.exec)('git', ['checkout', '-b', branchName]);
-                yield (0, exec_1.exec)('git', ['pull', 'origin', branchName, '--ff']);
+                yield (0, exec_1.exec)('git', ['pull', 'origin', branchName, '--ff', '-X', 'theirs']);
                 yield (0, exec_1.exec)('git', ['merge', 'origin/develop', '--ff', '-X', 'ours']);
                 yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', branchName]);
             }

@@ -59,7 +59,7 @@ async function run(): Promise<void> {
 
       await exec('git', ['checkout', '-b', branchName]);
 
-      await exec('git', ['pull', 'origin', branchName, '--ff']);
+      await exec('git', ['pull', 'origin', branchName, '--ff', '-X', 'theirs']);
 
       await exec('git', ['merge', 'origin/develop', '--ff', '-X', 'ours']);
 
