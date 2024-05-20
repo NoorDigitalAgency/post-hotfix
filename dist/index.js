@@ -37,7 +37,6 @@ const util_1 = __nccwpck_require__(3837);
 const functions_1 = __nccwpck_require__(1786);
 const exec_1 = __nccwpck_require__(5082);
 function run() {
-    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const token = (0, core_1.getInput)('token', { required: true });
@@ -48,17 +47,25 @@ function run() {
             (0, core_1.info)(`Release version: ${version}`);
             const octokit = (0, github_1.getOctokit)(token);
             const title = `Generated PR for hotfix/${version} into develop`;
+            (0, core_1.debug)(`Title: '${title}'`);
             const body = `**Merge Back** pull request **(develop🠔${branchName})** for **hotfix** version **${version}**.`;
-            let pullNumber = ((_a = (yield octokit.rest.pulls.list({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'develop', head: `${branchName}` })).data.pop()) !== null && _a !== void 0 ? _a : (yield octokit.rest.pulls.create({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'develop', head: `${branchName}`, title, body })).data).number;
+            (0, core_1.debug)(`Body: '${body}'`);
+            const existingPr = (yield octokit.rest.pulls.list({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'develop', head: `${branchName}` })).data.pop();
+            (0, core_1.debug)(`Existing PR: ${(0, util_1.inspect)(existingPr, { depth: 5 })}`);
+            let pullNumber = (existingPr !== null && existingPr !== void 0 ? existingPr : (yield octokit.rest.pulls.create({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'develop', head: `${branchName}`, title, body })).data).number;
+            (0, core_1.debug)(`Pull number: '${pullNumber}'`);
             let pull = (yield octokit.rest.pulls.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pullNumber })).data;
             while (pull.mergeable == null) {
                 yield (0, functions_1.wait)(5000);
                 pull = (yield octokit.rest.pulls.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pullNumber })).data;
             }
+            (0, core_1.debug)(`Pull: ${(0, util_1.inspect)(pull, { depth: 5 })}`);
             if (!pull.mergeable) {
+                (0, core_1.debug)(`Pull request is not mergeable`);
                 const url = new URL(github_1.context.payload.repository.html_url);
                 const actor = github_1.context.actor;
                 const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
+                (0, core_1.debug)(`GitHub URL: '${githubUrl}'`);
                 yield (0, exec_1.exec)('git', ['config', '--global', 'user.email', 'github@noor.se']);
                 yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', '"Noor’s GitHub Bot"']);
                 yield (0, exec_1.exec)('git', ['clone', githubUrl, '.']);
@@ -66,6 +73,7 @@ function run() {
                 yield (0, exec_1.exec)('git', ['pull', 'origin', branchName, '--ff', '-X', 'theirs']);
                 yield (0, exec_1.exec)('git', ['merge', 'origin/develop', '--ff', '-X', 'ours']);
                 yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', branchName]);
+                (0, core_1.debug)(`Merged develop into the branch`);
             }
             yield core_1.summary.addRaw(`Merge-Back Pull Request for **develop**: [${title}](${pull.html_url})`, true).write();
         }

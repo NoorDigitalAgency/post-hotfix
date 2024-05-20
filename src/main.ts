@@ -31,11 +31,19 @@ async function run(): Promise<void> {
 
     const title = `Generated PR for hotfix/${ version } into develop`;
 
+    debug(`Title: '${title}'`);
+
     const body = `**Merge Back** pull request **(develop🠔${ branchName })** for **hotfix** version **${ version }**.`;
 
-    let pullNumber = ((await octokit.rest.pulls.list({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }` })).data.pop() ??
+    debug(`Body: '${body}'`);
 
-        (await octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }`, title, body })).data).number;
+    const existingPr = (await octokit.rest.pulls.list({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }` })).data.pop();
+
+    debug(`Existing PR: ${stringify(existingPr, { depth: 5 })}`);
+
+    let pullNumber = (existingPr ?? (await octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }`, title, body })).data).number;
+
+    debug(`Pull number: '${pullNumber}'`);
 
     let pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pullNumber })).data;
 
@@ -46,13 +54,19 @@ async function run(): Promise<void> {
       pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pullNumber })).data;
     }
 
+    debug(`Pull: ${stringify(pull, { depth: 5 })}`);
+
     if (!pull.mergeable) {
+
+      debug(`Pull request is not mergeable`);
 
       const url = new URL(context.payload.repository!.html_url!);
 
       const actor = context.actor;
 
       const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
+
+      debug(`GitHub URL: '${githubUrl}'`);
 
       await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
 
@@ -67,6 +81,8 @@ async function run(): Promise<void> {
       await exec('git', ['merge', 'origin/develop', '--ff', '-X', 'ours']);
 
       await exec('git', ['push', '--set-upstream', 'origin', branchName]);
+
+      debug(`Merged develop into the branch`);
     }
 
     await summary.addRaw(`Merge-Back Pull Request for **develop**: [${title}](${pull.html_url})`, true).write();
