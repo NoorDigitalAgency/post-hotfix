@@ -37,7 +37,20 @@ async function run(): Promise<void> {
 
     debug(`Body: '${body}'`);
 
-    const existingPr = (await octokit.rest.pulls.list({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }` })).data.pop();
+    // List all open PRs from the hotfix branch to develop
+    const existingPrs = (await octokit.rest.pulls.list({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      state: 'open',
+      base: 'develop',
+      head: `${context.repo.owner}:${branchName}`
+    })).data;
+    
+    const existingPr = existingPrs.find(pr => 
+      pr.head.ref === branchName && 
+      pr.base.ref === 'develop' &&
+      pr.state === 'open'
+    );
 
     debug(`Existing PR: ${stringify(existingPr, { depth: 5 })}`);
 

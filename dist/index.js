@@ -50,7 +50,17 @@ function run() {
             (0, core_1.debug)(`Title: '${title}'`);
             const body = `**Merge Back** pull request **(develop🠔${branchName})** for **hotfix** version **${version}**.`;
             (0, core_1.debug)(`Body: '${body}'`);
-            const existingPr = (yield octokit.rest.pulls.list({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'develop', head: `${branchName}` })).data.pop();
+            // List all open PRs from the hotfix branch to develop
+            const existingPrs = (yield octokit.rest.pulls.list({
+                owner: github_1.context.repo.owner,
+                repo: github_1.context.repo.repo,
+                state: 'open',
+                base: 'develop',
+                head: `${github_1.context.repo.owner}:${branchName}`
+            })).data;
+            const existingPr = existingPrs.find(pr => pr.head.ref === branchName &&
+                pr.base.ref === 'develop' &&
+                pr.state === 'open');
             (0, core_1.debug)(`Existing PR: ${(0, util_1.inspect)(existingPr, { depth: 5 })}`);
             let pullNumber = (existingPr !== null && existingPr !== void 0 ? existingPr : (yield octokit.rest.pulls.create({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'develop', head: `${branchName}`, title, body })).data).number;
             (0, core_1.debug)(`Pull number: '${pullNumber}'`);
