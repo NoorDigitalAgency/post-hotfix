@@ -74,15 +74,25 @@ async function run(): Promise<void> {
 
       await exec('git', ['clone', githubUrl, '.']);
 
-      await exec('git', ['checkout', '-b', branchName]);
+      // Checkout the hotfix branch
+      await exec('git', ['checkout', branchName]);
+      
+      // Make sure we have the latest hotfix branch
+      await exec('git', ['pull', 'origin', branchName]);
+      
+      // Merge develop into the hotfix branch to resolve conflicts
+      // This ensures the PR will be mergeable without conflicts
+      await exec('git', ['merge', 'origin/develop', '--no-ff', '--no-commit', '--strategy-option', 'theirs']);
+      
+      // If there are any conflicts, they are now resolved with 'theirs' strategy
+      // Add all changes and create a merge commit
+      await exec('git', ['add', '.']);
+      await exec('git', ['commit', '--no-edit']);
+      
+      // Push the updated hotfix branch
+      await exec('git', ['push', 'origin', branchName]);
 
-      await exec('git', ['pull', 'origin', branchName, '--ff', '-X', 'theirs']);
-
-      await exec('git', ['merge', 'origin/develop', '--ff', '-X', 'ours']);
-
-      await exec('git', ['push', '--set-upstream', 'origin', branchName]);
-
-      debug(`Merged develop into the branch`);
+      debug(`Updated ${branchName} branch to be mergeable with develop`);
     }
 
     await summary.addRaw(`Merge-Back Pull Request for **develop**: [${title}](${pull.html_url})`, true).write();
