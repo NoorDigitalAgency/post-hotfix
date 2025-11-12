@@ -11,6 +11,9 @@ inputs:
   release_version:
     required: true
     description: The hotfix release version
+  stage:
+    required: true
+    description: The stage of the hotfix
 runs:
   using: 'node20'
   main: 'dist/index.js'
