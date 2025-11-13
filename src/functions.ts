@@ -8,7 +8,12 @@ type RequestErrorLike = {
       errors?: Array<{message?: string}>;
     };
   };
+  request?: {
+    body?: string;
+  };
 };
+
+type BranchPair = {base: string; head: string};
 
 const NO_COMMITS_REGEX = /No commits between (\S+) and (\S+)/i;
 
@@ -41,7 +46,10 @@ function collectErrorMessages(error: unknown): string[] {
   return messages;
 }
 
-function extractNoDiffDetails(error: unknown): {base: string; head: string} | undefined {
+const sanitizeBranchName = (name: string): string =>
+  name.replace(/^['"]+/, '').replace(/['"}]+$/, '');
+
+function extractNoDiffDetails(error: unknown): BranchPair | undefined {
   const messages = collectErrorMessages(error);
 
   for (const message of messages) {
@@ -50,8 +58,39 @@ function extractNoDiffDetails(error: unknown): {base: string; head: string} | un
     if (match?.[1] && match?.[2]) {
       const [, base, head] = match;
 
-      return {base, head};
+      return {
+        base: sanitizeBranchName(base),
+        head: sanitizeBranchName(head)
+      };
     }
+  }
+
+  return undefined;
+}
+
+function extractBranchesFromRequest(error: unknown): BranchPair | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+
+  const body = (error as RequestErrorLike).request?.body;
+
+  if (typeof body !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as {base?: unknown; head?: unknown};
+    const {base, head} = parsed;
+
+    if (typeof base === 'string' && typeof head === 'string') {
+      return {
+        base: sanitizeBranchName(base),
+        head: sanitizeBranchName(head)
+      };
+    }
+  } catch {
+    return undefined;
   }
 
   return undefined;
@@ -61,9 +100,10 @@ export function getFriendlyErrorMessage(error: unknown): string {
   const noDiff = extractNoDiffDetails(error);
 
   if (noDiff) {
-    const {base, head} = noDiff;
+    const branches = extractBranchesFromRequest(error) ?? noDiff;
+    const {base, head} = branches;
 
-    return `Unable to create a merge-back pull request because '${head}' has no new commits compared to '${base}'. If the branches already match, you can skip rerunning this action or push new changes before retrying.`;
+    return `Unable to create a merge-back pull request because '${head}' has no new commits compared to '${base}'.`;
   }
 
   const defaultMessage = 'Failed to create the merge-back pull request.';

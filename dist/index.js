@@ -33,22 +33,52 @@ function collectErrorMessages(error) {
     }
     return messages;
 }
+const sanitizeBranchName = (name) => name.replace(/^['"]+/, '').replace(/['"}]+$/, '');
 function extractNoDiffDetails(error) {
     const messages = collectErrorMessages(error);
     for (const message of messages) {
         const match = message.match(NO_COMMITS_REGEX);
         if ((match === null || match === void 0 ? void 0 : match[1]) && (match === null || match === void 0 ? void 0 : match[2])) {
             const [, base, head] = match;
-            return { base, head };
+            return {
+                base: sanitizeBranchName(base),
+                head: sanitizeBranchName(head)
+            };
         }
     }
     return undefined;
 }
+function extractBranchesFromRequest(error) {
+    var _a;
+    if (typeof error !== 'object' || error === null) {
+        return undefined;
+    }
+    const body = (_a = error.request) === null || _a === void 0 ? void 0 : _a.body;
+    if (typeof body !== 'string') {
+        return undefined;
+    }
+    try {
+        const parsed = JSON.parse(body);
+        const { base, head } = parsed;
+        if (typeof base === 'string' && typeof head === 'string') {
+            return {
+                base: sanitizeBranchName(base),
+                head: sanitizeBranchName(head)
+            };
+        }
+    }
+    catch (_b) {
+        return undefined;
+    }
+    return undefined;
+}
 function getFriendlyErrorMessage(error) {
+    var _a;
     const noDiff = extractNoDiffDetails(error);
     if (noDiff) {
-        const { base, head } = noDiff;
-        return `Unable to create a merge-back pull request because '${head}' has no new commits compared to '${base}'. If the branches already match, you can skip rerunning this action or push new changes before retrying.`;
+        const branches = (_a = extractBranchesFromRequest(error)) !== null && _a !== void 0 ? _a : noDiff;
+        const { base, head } = branches;
+        return `Unable to create a merge-back pull request because '${head}' has no new commits compared to '${base}'.`;
     }
     const defaultMessage = 'Failed to create the merge-back pull request.';
     const detail = error instanceof Error ? error.message : (0, util_1.inspect)(error, { depth: 2 });
