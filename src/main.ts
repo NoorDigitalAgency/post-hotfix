@@ -41,11 +41,11 @@ async function run(): Promise<void> {
 
     const pullRequestMatrix: Record<string, PullRequestConfig[]> = {
       production: [
-        { head: 'main', base: 'release' },
-        { head: 'main', base: 'develop' }
+        { head: branchName, base: 'release' },
+        { head: branchName, base: 'develop' }
       ],
       beta: [
-        { head: 'release', base: 'develop' }
+        { head: branchName, base: 'develop' }
       ]
     };
 

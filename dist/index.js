@@ -34,11 +34,11 @@ function run() {
             const stageLower = stage.toLowerCase();
             const pullRequestMatrix = {
                 production: [
-                    { head: 'main', base: 'release' },
-                    { head: 'main', base: 'develop' }
+                    { head: branchName, base: 'release' },
+                    { head: branchName, base: 'develop' }
                 ],
                 beta: [
-                    { head: 'release', base: 'develop' }
+                    { head: branchName, base: 'develop' }
                 ]
             };
             const configs = pullRequestMatrix[stageLower];
