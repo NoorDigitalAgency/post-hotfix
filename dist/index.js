@@ -19,6 +19,51 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core_1 = __nccwpck_require__(9090);
 const github_1 = __nccwpck_require__(5327);
 const util_1 = __nccwpck_require__(3837);
+const NO_COMMITS_REGEX = /No commits between (\S+) and (\S+)/i;
+function collectErrorMessages(error) {
+    var _a;
+    const messages = [];
+    if (error instanceof Error && error.message) {
+        messages.push(error.message);
+    }
+    if (typeof error === 'object' && error !== null) {
+        const candidate = error;
+        const data = (_a = candidate.response) === null || _a === void 0 ? void 0 : _a.data;
+        if (data === null || data === void 0 ? void 0 : data.message) {
+            messages.push(data.message);
+        }
+        const nestedErrors = data === null || data === void 0 ? void 0 : data.errors;
+        if (Array.isArray(nestedErrors)) {
+            for (const entry of nestedErrors) {
+                if (entry === null || entry === void 0 ? void 0 : entry.message) {
+                    messages.push(entry.message);
+                }
+            }
+        }
+    }
+    return messages;
+}
+function extractNoDiffDetails(error) {
+    const messages = collectErrorMessages(error);
+    for (const message of messages) {
+        const match = message.match(NO_COMMITS_REGEX);
+        if ((match === null || match === void 0 ? void 0 : match[1]) && (match === null || match === void 0 ? void 0 : match[2])) {
+            const [, base, head] = match;
+            return { base, head };
+        }
+    }
+    return undefined;
+}
+function getFriendlyErrorMessage(error) {
+    const noDiff = extractNoDiffDetails(error);
+    if (noDiff) {
+        const { base, head } = noDiff;
+        return `Unable to create a merge-back pull request because '${head}' has no new commits compared to '${base}'. If the branches already match, you can skip rerunning this action or push new changes before retrying.`;
+    }
+    const defaultMessage = 'Failed to create the merge-back pull request.';
+    const detail = error instanceof Error ? error.message : (0, util_1.inspect)(error, { depth: 2 });
+    return detail ? `${defaultMessage} ${detail}` : defaultMessage;
+}
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -83,7 +128,7 @@ function run() {
             (0, core_1.startGroup)('Error');
             (0, core_1.debug)(`${(0, util_1.inspect)(error, { depth: 5 })}`);
             (0, core_1.endGroup)();
-            (0, core_1.warning)(`Failed to create the merge-back pull request with error${error instanceof Error ? `: ${error.message}` : '.'}`);
+            (0, core_1.warning)(getFriendlyErrorMessage(error));
         }
     });
 }
