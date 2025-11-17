@@ -2,12 +2,89 @@ require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
 /***/ 1786:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = void 0;
+exports.wait = exports.getFriendlyErrorMessage = void 0;
+const util_1 = __nccwpck_require__(3837);
+const NO_COMMITS_REGEX = /No commits between (\S+) and (\S+)/i;
+function collectErrorMessages(error) {
+    var _a;
+    const messages = [];
+    if (error instanceof Error && error.message) {
+        messages.push(error.message);
+    }
+    if (typeof error === 'object' && error !== null) {
+        const candidate = error;
+        const data = (_a = candidate.response) === null || _a === void 0 ? void 0 : _a.data;
+        if (data === null || data === void 0 ? void 0 : data.message) {
+            messages.push(data.message);
+        }
+        const nestedErrors = data === null || data === void 0 ? void 0 : data.errors;
+        if (Array.isArray(nestedErrors)) {
+            for (const entry of nestedErrors) {
+                if (entry === null || entry === void 0 ? void 0 : entry.message) {
+                    messages.push(entry.message);
+                }
+            }
+        }
+    }
+    return messages;
+}
+const sanitizeBranchName = (name) => name.replace(/^['"]+/, '').replace(/['"}]+$/, '');
+function extractNoDiffDetails(error) {
+    const messages = collectErrorMessages(error);
+    for (const message of messages) {
+        const match = message.match(NO_COMMITS_REGEX);
+        if ((match === null || match === void 0 ? void 0 : match[1]) && (match === null || match === void 0 ? void 0 : match[2])) {
+            const [, base, head] = match;
+            return {
+                base: sanitizeBranchName(base),
+                head: sanitizeBranchName(head)
+            };
+        }
+    }
+    return undefined;
+}
+function extractBranchesFromRequest(error) {
+    var _a;
+    if (typeof error !== 'object' || error === null) {
+        return undefined;
+    }
+    const body = (_a = error.request) === null || _a === void 0 ? void 0 : _a.body;
+    if (typeof body !== 'string') {
+        return undefined;
+    }
+    try {
+        const parsed = JSON.parse(body);
+        const { base, head } = parsed;
+        if (typeof base === 'string' && typeof head === 'string') {
+            return {
+                base: sanitizeBranchName(base),
+                head: sanitizeBranchName(head)
+            };
+        }
+    }
+    catch (_b) {
+        return undefined;
+    }
+    return undefined;
+}
+function getFriendlyErrorMessage(error) {
+    var _a;
+    const noDiff = extractNoDiffDetails(error);
+    if (noDiff) {
+        const branches = (_a = extractBranchesFromRequest(error)) !== null && _a !== void 0 ? _a : noDiff;
+        const { base, head } = branches;
+        return `Unable to create a merge-back pull request because '${head}' has no new commits compared to '${base}'.`;
+    }
+    const defaultMessage = 'Failed to create the merge-back pull request.';
+    const detail = error instanceof Error ? error.message : (0, util_1.inspect)(error, { depth: 2 });
+    return detail ? `${defaultMessage} ${detail}` : defaultMessage;
+}
+exports.getFriendlyErrorMessage = getFriendlyErrorMessage;
 function wait(milliseconds) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -35,7 +112,6 @@ const core_1 = __nccwpck_require__(9090);
 const github_1 = __nccwpck_require__(5327);
 const util_1 = __nccwpck_require__(3837);
 const functions_1 = __nccwpck_require__(1786);
-const exec_1 = __nccwpck_require__(5082);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -45,62 +121,62 @@ function run() {
             (0, core_1.debug)(`Branch name: '${branchName}'`);
             const version = (0, core_1.getInput)('release_version', { required: true });
             (0, core_1.info)(`Release version: ${version}`);
+            const stage = (0, core_1.getInput)('stage', { required: true });
+            (0, core_1.info)(`Stage: ${stage}`);
             const octokit = (0, github_1.getOctokit)(token);
-            const title = `Generated PR for hotfix/${version} into develop`;
-            (0, core_1.debug)(`Title: '${title}'`);
-            const body = `**Merge Back** pull request **(develop🠔${branchName})** for **hotfix** version **${version}**.`;
-            (0, core_1.debug)(`Body: '${body}'`);
-            // List all open PRs from the hotfix branch to develop
-            const existingPrs = (yield octokit.rest.pulls.list({
-                owner: github_1.context.repo.owner,
-                repo: github_1.context.repo.repo,
-                state: 'open',
-                base: 'develop',
-                head: `${github_1.context.repo.owner}:${branchName}`
-            })).data;
-            const existingPr = existingPrs.find(pr => pr.head.ref === branchName &&
-                pr.base.ref === 'develop' &&
-                pr.state === 'open');
-            (0, core_1.debug)(`Existing PR: ${(0, util_1.inspect)(existingPr, { depth: 5 })}`);
-            let pullNumber = (existingPr !== null && existingPr !== void 0 ? existingPr : (yield octokit.rest.pulls.create({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'develop', head: `${branchName}`, title, body })).data).number;
-            (0, core_1.debug)(`Pull number: '${pullNumber}'`);
-            let pull = (yield octokit.rest.pulls.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pullNumber })).data;
-            while (pull.mergeable == null) {
-                yield (0, functions_1.wait)(5000);
-                pull = (yield octokit.rest.pulls.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pullNumber })).data;
+            const stageLower = stage.toLowerCase();
+            const pullRequestMatrix = {
+                production: [
+                    { head: branchName, base: 'release' },
+                    { head: branchName, base: 'develop' }
+                ],
+                beta: [
+                    { head: branchName, base: 'develop' }
+                ]
+            };
+            const configs = pullRequestMatrix[stageLower];
+            if (!configs) {
+                throw new Error(`Unsupported stage '${stage}'. Supported values: production, beta.`);
             }
-            (0, core_1.debug)(`Pull: ${(0, util_1.inspect)(pull, { depth: 5 })}`);
-            if (!pull.mergeable) {
-                (0, core_1.debug)(`Pull request is not mergeable`);
-                const url = new URL(github_1.context.payload.repository.html_url);
-                const actor = github_1.context.actor;
-                const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
-                (0, core_1.debug)(`GitHub URL: '${githubUrl}'`);
-                yield (0, exec_1.exec)('git', ['config', '--global', 'user.email', 'github@noor.se']);
-                yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', '"Noor’s GitHub Bot"']);
-                yield (0, exec_1.exec)('git', ['clone', githubUrl, '.']);
-                // Checkout the hotfix branch
-                yield (0, exec_1.exec)('git', ['checkout', branchName]);
-                // Make sure we have the latest hotfix branch
-                yield (0, exec_1.exec)('git', ['pull', 'origin', branchName]);
-                // Merge develop into the hotfix branch to resolve conflicts
-                // This ensures the PR will be mergeable without conflicts
-                yield (0, exec_1.exec)('git', ['merge', 'origin/develop', '--no-ff', '--no-commit', '--strategy-option', 'theirs']);
-                // If there are any conflicts, they are now resolved with 'theirs' strategy
-                // Add all changes and create a merge commit
-                yield (0, exec_1.exec)('git', ['add', '.']);
-                yield (0, exec_1.exec)('git', ['commit', '--no-edit']);
-                // Push the updated hotfix branch
-                yield (0, exec_1.exec)('git', ['push', 'origin', branchName]);
-                (0, core_1.debug)(`Updated ${branchName} branch to be mergeable with develop`);
+            const createTitle = (head, base) => `Generated PR for hotfix/${version} (${head}🠖${base})`;
+            const createBody = (head, base) => `**Merge Back** pull request **(${base}🠔${head})** for **hotfix** version **${version}** in **${stage}** stage.`;
+            const pulls = [];
+            for (const { head, base } of configs) {
+                const title = createTitle(head, base);
+                const body = createBody(head, base);
+                (0, core_1.debug)(`Processing PR | base: '${base}' | head: '${head}' | title: '${title}'`);
+                const existingPrs = (yield octokit.rest.pulls.list({
+                    owner: github_1.context.repo.owner,
+                    repo: github_1.context.repo.repo,
+                    state: 'open',
+                    base,
+                    head: `${github_1.context.repo.owner}:${head}`
+                })).data;
+                const existingPr = existingPrs.find(pr => pr.head.ref === head &&
+                    pr.base.ref === base &&
+                    pr.state === 'open');
+                (0, core_1.debug)(`Existing PR for ${head}->${base}: ${(0, util_1.inspect)(existingPr, { depth: 5 })}`);
+                const pull = existingPr !== null && existingPr !== void 0 ? existingPr : (yield octokit.rest.pulls.create({
+                    owner: github_1.context.repo.owner,
+                    repo: github_1.context.repo.repo,
+                    base,
+                    head,
+                    title,
+                    body
+                })).data;
+                (0, core_1.debug)(`Pull created/found for ${head}->${base}: ${(0, util_1.inspect)(pull, { depth: 3 })}`);
+                pulls.push(pull);
             }
-            yield core_1.summary.addRaw(`Merge-Back Pull Request for **develop**: [${title}](${pull.html_url})`, true).write();
+            for (const pull of pulls) {
+                core_1.summary.addRaw(`Merge-Back Pull Request for **${pull.base.ref}**: [${pull.title}](${pull.html_url})`, true);
+            }
+            yield core_1.summary.write();
         }
         catch (error) {
             (0, core_1.startGroup)('Error');
             (0, core_1.debug)(`${(0, util_1.inspect)(error, { depth: 5 })}`);
             (0, core_1.endGroup)();
-            (0, core_1.warning)(`Failed to create the merge-back pull request with error${error instanceof Error ? `: ${error.message}` : '.'}`);
+            (0, core_1.warning)((0, functions_1.getFriendlyErrorMessage)(error));
         }
     });
 }

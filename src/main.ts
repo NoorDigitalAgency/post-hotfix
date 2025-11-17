@@ -4,12 +4,12 @@ import {
   info,
   startGroup,
   endGroup,
-  summary, warning
+  summary,
+  warning
 } from '@actions/core';
 import {getOctokit, context} from '@actions/github';
 import {inspect as stringify} from 'util';
-import {wait} from "./functions";
-import {exec} from "@actions/exec";
+import {getFriendlyErrorMessage} from './functions';
 
 async function run(): Promise<void> {
 
@@ -27,88 +27,87 @@ async function run(): Promise<void> {
 
     info(`Release version: ${version}`);
 
+    const stage = getInput('stage', { required: true });
+
+    info(`Stage: ${stage}`);
+
     const octokit = getOctokit(token);
 
-    const title = `Generated PR for hotfix/${ version } into develop`;
+    type PullRequestConfig = {
+      head: string;
+      base: string;
+    };
 
-    debug(`Title: '${title}'`);
+    const stageLower = stage.toLowerCase();
 
-    const body = `**Merge Back** pull request **(develop🠔${ branchName })** for **hotfix** version **${ version }**.`;
+    const pullRequestMatrix: Record<string, PullRequestConfig[]> = {
+      production: [
+        { head: branchName, base: 'release' },
+        { head: branchName, base: 'develop' }
+      ],
+      beta: [
+        { head: branchName, base: 'develop' }
+      ]
+    };
 
-    debug(`Body: '${body}'`);
+    const configs = pullRequestMatrix[stageLower];
 
-    // List all open PRs from the hotfix branch to develop
-    const existingPrs = (await octokit.rest.pulls.list({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      state: 'open',
-      base: 'develop',
-      head: `${context.repo.owner}:${branchName}`
-    })).data;
-    
-    const existingPr = existingPrs.find(pr => 
-      pr.head.ref === branchName && 
-      pr.base.ref === 'develop' &&
-      pr.state === 'open'
-    );
-
-    debug(`Existing PR: ${stringify(existingPr, { depth: 5 })}`);
-
-    let pullNumber = (existingPr ?? (await octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head: `${ branchName }`, title, body })).data).number;
-
-    debug(`Pull number: '${pullNumber}'`);
-
-    let pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pullNumber })).data;
-
-    while (pull.mergeable == null) {
-
-      await wait(5000);
-
-      pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pullNumber })).data;
+    if (!configs) {
+      throw new Error(`Unsupported stage '${stage}'. Supported values: production, beta.`);
     }
 
-    debug(`Pull: ${stringify(pull, { depth: 5 })}`);
+    const createTitle = (head: string, base: string): string =>
+      `Generated PR for hotfix/${ version } (${ head }🠖${ base })`;
 
-    if (!pull.mergeable) {
+    const createBody = (head: string, base: string): string =>
+      `**Merge Back** pull request **(${ base }🠔${ head })** for **hotfix** version **${ version }** in **${ stage }** stage.`;
 
-      debug(`Pull request is not mergeable`);
+    const pulls = [];
 
-      const url = new URL(context.payload.repository!.html_url!);
+    for (const {head, base} of configs) {
+      const title = createTitle(head, base);
+      const body = createBody(head, base);
 
-      const actor = context.actor;
+      debug(`Processing PR | base: '${base}' | head: '${head}' | title: '${title}'`);
 
-      const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
+      const existingPrs = (await octokit.rest.pulls.list({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        state: 'open',
+        base,
+        head: `${context.repo.owner}:${head}`
+      })).data;
 
-      debug(`GitHub URL: '${githubUrl}'`);
+      const existingPr = existingPrs.find(pr =>
+        pr.head.ref === head &&
+        pr.base.ref === base &&
+        pr.state === 'open'
+      );
 
-      await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
+      debug(`Existing PR for ${head}->${base}: ${stringify(existingPr, { depth: 5 })}`);
 
-      await exec('git', ['config', '--global', 'user.name', '"Noor’s GitHub Bot"']);
+      const pull = existingPr ?? (await octokit.rest.pulls.create({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        base,
+        head,
+        title,
+        body
+      })).data;
 
-      await exec('git', ['clone', githubUrl, '.']);
+      debug(`Pull created/found for ${head}->${base}: ${stringify(pull, { depth: 3 })}`);
 
-      // Checkout the hotfix branch
-      await exec('git', ['checkout', branchName]);
-      
-      // Make sure we have the latest hotfix branch
-      await exec('git', ['pull', 'origin', branchName]);
-      
-      // Merge develop into the hotfix branch to resolve conflicts
-      // This ensures the PR will be mergeable without conflicts
-      await exec('git', ['merge', 'origin/develop', '--no-ff', '--no-commit', '--strategy-option', 'theirs']);
-      
-      // If there are any conflicts, they are now resolved with 'theirs' strategy
-      // Add all changes and create a merge commit
-      await exec('git', ['add', '.']);
-      await exec('git', ['commit', '--no-edit']);
-      
-      // Push the updated hotfix branch
-      await exec('git', ['push', 'origin', branchName]);
-
-      debug(`Updated ${branchName} branch to be mergeable with develop`);
+      pulls.push(pull);
     }
 
-    await summary.addRaw(`Merge-Back Pull Request for **develop**: [${title}](${pull.html_url})`, true).write();
+    for (const pull of pulls) {
+      summary.addRaw(
+        `Merge-Back Pull Request for **${pull.base.ref}**: [${pull.title}](${pull.html_url})`,
+        true
+      );
+    }
+
+    await summary.write();
 
   } catch (error) {
 
@@ -118,7 +117,7 @@ async function run(): Promise<void> {
 
     endGroup();
 
-    warning(`Failed to create the merge-back pull request with error${ error instanceof Error ? `: ${error.message}` : '.' }`);
+    warning(getFriendlyErrorMessage(error));
   }
 }
 
